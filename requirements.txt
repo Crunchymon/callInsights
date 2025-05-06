@@ -51,7 +51,7 @@ narwhals==1.38.0
 networkx==3.4.2
 numba==0.61.2
 numpy==2.2.5
-openai-whisper==20240930
+
 orjson==3.10.18
 packaging==24.2
 pandas==2.2.3
