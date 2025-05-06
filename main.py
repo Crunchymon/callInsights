@@ -20,8 +20,8 @@ genai.configure(api_key=api_key)
 
 gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 
-def transcribe_audio(file_path,model,language):
-    model = whisper.load_model(model)
+def transcribe_audio(file_path,model_size,language):
+    model = whisper.load_model(model_size)
     result = model.transcribe(file_path,language=language)
     return result["text"]
 
