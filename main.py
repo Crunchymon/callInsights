@@ -5,6 +5,7 @@ import google.generativeai as genai
 import os
 from fpdf import FPDF
 from dotenv import load_dotenv
+import threading
 load_dotenv()
 
 import logging
@@ -73,34 +74,55 @@ st.title("AI-Powered Call Insights Generator")
 uploaded_file = st.file_uploader("Upload audio file", type=["mp3", "wav", "m4a"])
 st.text("Your current Chosen Transcript mode:")
 st.text(mode)
+
+def threaded_transcription(file_path, mode, status_box):
+    if mode == "Fast (But with low Accuracy)":
+        status_box.text("Transcribing English (base model)...")
+        transcript_english = transcribe_audio(file_path, "base", "english")
+        status_box.text("Transcribing Hindi (base model)...")
+        transcript_hindi = transcribe_audio(file_path, "base", "hindi")
+    elif mode == "Balanced":
+        status_box.text("Transcribing English (medium model)...")
+        transcript_english = transcribe_audio(file_path, "medium", "english")
+        status_box.text("Transcribing Hindi (small model)...")
+        transcript_hindi = transcribe_audio(file_path, "small", "hindi")
+    else:
+        status_box.text("Transcribing English (medium model)...")
+        transcript_english = transcribe_audio(file_path, "medium", "english")
+        status_box.text("Transcribing Hindi (medium model)...")
+        transcript_hindi = transcribe_audio(file_path, "medium", "hindi")
+
+    st.session_state["transcript_english"] = transcript_english
+    st.session_state["transcript_hindi"] = transcript_hindi
+    st.session_state["transcription_done"] = True
+    status_box.text("Transcription complete!")
+
 if uploaded_file is not None:
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(uploaded_file.read())
         tmp_path = tmp.name
-    with st.spinner("Transcribing..."):
-        if mode == "Fast (But with low Accuracy)":
-            transcript_base_english = transcribe_audio(tmp_path,"base","english")
-            transcript_base_hindi = transcribe_audio(tmp_path,"base","hindi")
-        elif mode == "Balanced":
-            transcript_base_english = transcribe_audio(tmp_path,"medium","english")
-            transcript_base_hindi = transcribe_audio(tmp_path,"small","hindi")
-        else:
-            transcript_base_english = transcribe_audio(tmp_path,"medium","english")
-            transcript_base_hindi = transcribe_audio(tmp_path,"medium","hindi")
 
-    
+    if "transcription_done" not in st.session_state:
+        st.session_state["transcription_done"] = False
+
+    status_box = st.empty()
+
+    if not st.session_state["transcription_done"]:
+        if st.button("Start Transcription"):
+            threading.Thread(target=threaded_transcription, args=(tmp_path, mode, status_box)).start()
+    else:
         st.subheader("Transcript")
-        st.text(transcript_base_english)
-        st.text(transcript_base_hindi)
+        st.text(st.session_state["transcript_english"])
+        st.text(st.session_state["transcript_hindi"])
 
-    with st.spinner("Generating Insights with Gemini..."):
-        insights = insights_cleaner(generate_insights(transcript_base_english,transcript_base_hindi))
-        st.subheader("Insights")
-        st.text(insights)
+        with st.spinner("Generating Insights with Gemini..."):
+            insights = insights_cleaner(generate_insights(st.session_state["transcript_english"],
+                                                          st.session_state["transcript_hindi"]))
+            st.subheader("Insights")
+            st.text(insights)
 
-        # Generate PDF
-        pdf_path = "call_insights.pdf"
-        create_pdf(insights, pdf_path)
+            pdf_path = "call_insights.pdf"
+            create_pdf(insights, pdf_path)
 
-        with open(pdf_path, "rb") as f:
-            st.download_button("Download PDF", f, file_name="call_report.pdf")
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF", f, file_name="call_report.pdf")

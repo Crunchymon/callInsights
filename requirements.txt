@@ -1,8 +1,21 @@
+# Streamlit for the UI
 streamlit==1.34.0
+
+# OpenAI Whisper for transcription
 openai-whisper==20231117
+
+# Torch and Torchaudio (compatible with Whisper)
 torch==2.2.2
 torchaudio==2.2.2
+
+# PDF generation
 fpdf==1.7.2
+
+# For reading environment variables
 python-dotenv==1.0.1
+
+# Gemini API
 google-generativeai==0.3.2
 
+# Optional: required by whisper for decoding audio
+ffmpeg-python==0.2.0  # not strictly required, but helps in some environments
