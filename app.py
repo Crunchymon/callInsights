@@ -7,6 +7,14 @@ from fpdf import FPDF
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+
 api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
