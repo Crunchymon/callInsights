@@ -39,7 +39,10 @@ def transcribe_audio_assemblyai(file_path=None, external_url=None):
     data = {
         "audio_url": audio_url,
         "language_detection": True,
-        "speaker_labels": True
+        "speaker_labels": True,
+        "sentiment_analysis": True,
+        "entity_detection": True,
+        "auto_highlights": True
     }
     response = requests.post(ASSEMBLYAI_TRANSCRIBE_URL, headers=headers, json=data)
     response.raise_for_status()
@@ -56,23 +59,33 @@ def transcribe_audio_assemblyai(file_path=None, external_url=None):
         time.sleep(3)
 
 # Clean output for PDF
+
 def insights_cleaner(insights: str) -> str:
-    # # Normalize Unicode characters to ASCII (removes accents/symbols)
-    # cleaned = unicodedata.normalize("NFKD", insights).encode("ASCII", "ignore").decode("ASCII")
+    # Normalize Unicode (removes accents, emojis)
+    cleaned = unicodedata.normalize("NFKD", insights).encode("ASCII", "ignore").decode("ASCII")
 
-    # # Remove bullet points, emojis, and other unsafe characters
-    # cleaned = re.sub(r"[*•→►▪️🔹⚫🔸❖]", "", cleaned)
+    # Remove emojis and bullet-like symbols
+    cleaned = re.sub(r"[*•→►▪️🔹⚫🔸❖✅🔥💡➡️➤➔]", "", cleaned)
 
-    # # Replace multiple newlines with a single newline
-    # cleaned = re.sub(r"\n+", "\n", cleaned)
+    # Normalize Windows/mac line endings to Unix
+    cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
 
-    # # Remove any control characters
-    # cleaned = re.sub(r"[\x00-\x1F\x7F]", "", cleaned)
+    # Split by double newlines to preserve paragraph structure
+    paragraphs = re.split(r"\n{2,}", cleaned)
 
-    # # Strip excessive spaces from beginning/end
-    # cleaned = cleaned.strip()
+    formatted_paragraphs = []
+    for para in paragraphs:
+        # Remove excess spaces in each line, then join the lines in a paragraph
+        lines = para.split("\n")
+        cleaned_lines = [re.sub(r"\s+", " ", line).strip() for line in lines if line.strip()]
+        if cleaned_lines:
+            formatted_paragraphs.append(" ".join(cleaned_lines))
 
-    return insights
+    # Join paragraphs with double newlines to preserve spacing in PDF
+    final_text = "\n\n".join(formatted_paragraphs).strip()
+
+    return final_text
+
 
 # Generate insights using Gemini
 def generate_insights(transcript):
@@ -80,15 +93,14 @@ def generate_insights(transcript):
     This is a sales call transcript response from assembly AI with labels of speakers present as well it can be a mix of hindi and english. Analyze it and provide:
 
     1. Identify key discussion points and objections
-    2. Rate the sales agent's performance (e.g., tone, pitch, flow, handling objections)
+    2. Rate the sales agent's performance (score out of 5) (e.g., tone, pitch, flow, handling objections)
     3. Generate next actionables (follow-up tasks, customer interest level, etc.)
     4. explain the evaluation criteria and logic used for generating actionables
     5. Keep it short and concise
-    6. Structure the output in a clear and organized manner
-
-    DO NOT USE ANY SPECIAL CHARACTERS OR BULLET POINTS IN THE RESPONSE THAT MAY CAUSE ISSUES WITH THE PDF GENERATION USING FPDF
+    
     Transcript:
     {transcript}
+    pay special attention to entities in the transcirpt {transcript["entities"]} and sentiment analysis {transcript["sentiment_analysis_results"]} 
     """
     response = gemini_model.generate_content(prompt)
     return response.text
@@ -113,7 +125,7 @@ uploaded_file = None
 audio_url = None
 
 if input_mode == "Upload File":
-    uploaded_file = st.file_uploader("Upload audio file", type=["mp3", "wav", "m4a"])
+    uploaded_file = st.file_uploader("Upload audio file", type=["mp3", "wav", "m4a", "aac", "ogg", "flac", "webm", "mp4", "mov","amr"])
 else:
     audio_url = st.text_input("Paste public audio URL")
 
@@ -128,17 +140,18 @@ if (uploaded_file and input_mode == "Upload File") or (audio_url and input_mode 
             transcript = transcribe_audio_assemblyai(external_url=audio_url)
 
         st.subheader("Transcript:")
+        # st.write(transcript)
         # for i in transcript["utterances"]:
         #     st.write(f"Speaker {i['speaker']} : {i['text']}")
         st.write(transcript["text"])
 
     with st.spinner("Generating Insights with Gemini..."):
-        insights = insights_cleaner(generate_insights(transcript))
+        insights = (generate_insights(transcript))
         st.subheader("Insights")
         st.write(insights)
 
         pdf_path = "call_insights.pdf"
-        create_pdf(insights, pdf_path)
+        create_pdf(insights_cleaner(insights), pdf_path)
 
         with open(pdf_path, "rb") as f:
             st.download_button("Download PDF", f, file_name="call_report.pdf")
