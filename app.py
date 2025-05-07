@@ -22,22 +22,17 @@ api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 
-# Load models once and store them globally
+
 @st.cache_resource
-def load_whisper_models():
-    return {
-        "base": whisper.load_model("base"),
-        "small": whisper.load_model("small"),
-        "medium": whisper.load_model("medium"),
-    }
+def get_whisper_model(model_key):
+    return whisper.load_model(model_key)
 
-whisper_models = load_whisper_models()
-
-# Updated transcribe_audio function
 def transcribe_audio(file_path, model_key, language):
-    model = whisper_models[model_key]
+    model = get_whisper_model(model_key)
     result = model.transcribe(file_path, language=language)
     return result["text"]
+
+
 
 
 def generate_insights(transcript_1,transcript_2):
