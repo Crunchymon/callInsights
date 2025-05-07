@@ -5,8 +5,10 @@ import google.generativeai as genai
 import os
 from fpdf import FPDF
 
-# Fix for ffmpeg path on Streamlit Cloud
-os.environ["PATH"] += os.pathsep + "/usr/bin"
+
+# Add current directory to PATH so Whisper finds ./ffmpeg
+os.environ["PATH"] = os.getcwd() + os.pathsep + os.environ["PATH"]
+
 
 import logging
 
