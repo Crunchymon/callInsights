@@ -5,6 +5,8 @@ import google.generativeai as genai
 import os
 from fpdf import FPDF
 
+# Fix for ffmpeg path on Streamlit Cloud
+os.environ["PATH"] += os.pathsep + "/usr/bin"
 
 import logging
 
